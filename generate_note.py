@@ -39,17 +39,32 @@ def generate_note(
 def generate_batch(
     prompt: str,
     n_samples: int = 1,
-    **kwargs
+    system_prompt: Optional[str] = None,
+    model: str = "gpt-4",
+    temperature: float = 0.8
 ) -> List[str]:
-    """
-    Generate multiple samples using the same prompt.
+    """Generate multiple samples using a single LLM call."""
+    load_dotenv()
+    client = OpenAI()
     
-    Args:
-        prompt: The main prompt text
-        n_samples: Number of samples to generate
-        **kwargs: Additional arguments passed to generate_basic_note
+    batch_prompt = (
+        f"Generate {n_samples} different clinical notes.\n"
+        f"Each note should be complete with its own [RELATIONS] block.\n"
+        f"Separate notes with '==='.\n\n"
+        f"{prompt}"
+    )
     
-    Returns:
-        List of generated texts
-    """
-    return [generate_note(prompt, **kwargs) for _ in range(n_samples)]
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": batch_prompt})
+    
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=temperature
+    )
+    
+    # Split response into individual notes
+    notes = response.choices[0].message.content.split("===")
+    return [note.strip() for note in notes if note.strip()]
